@@ -30,6 +30,7 @@ config = ReporterConfig(
 reporter = Reporter(
     config,
     interval_seconds=30.0,  # configurable, non-blocking
+    debug_mode=False,       # set to True for testing status transitions
 )
 
 reporter.start()
@@ -71,3 +72,4 @@ reporter.stop()
   - `operational`: DB is currently reachable and failure rates < 20%
   - `degraded`: failure rate of DB or MQTT >= 20%
   - `unavailable`: current DB probe failed
+- Debug mode (`debug_mode=True`): alternates between "degraded" and "unavailable" every 5 seconds for testing

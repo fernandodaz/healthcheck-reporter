@@ -82,11 +82,13 @@ class Reporter:
         interval_seconds: float = 30.0,
         db_probe_timeout_seconds: float = 3.0,
         mqtt_connect_timeout_seconds: float = 5.0,
+        debug_mode: bool = False,
     ) -> None:
         self._config = config
         self._interval_seconds = max(0.1, interval_seconds)
         self._db_probe_timeout_seconds = max(0.1, db_probe_timeout_seconds)
         self._mqtt_connect_timeout_seconds = max(0.1, mqtt_connect_timeout_seconds)
+        self._debug_mode = debug_mode
 
         # MQTT client is created per Reporter instance and reused across publishes
         self._mqtt_client = mqtt.Client(client_id=config.mqtt_client_id, clean_session=True)
@@ -102,6 +104,7 @@ class Reporter:
         self._mqtt_error_count: int = 0
         self._db_attempt_count: int = 0
         self._mqtt_attempt_count: int = 0
+        self._debug_start_time: float = time.monotonic()
 
     # Public API
     def start(self) -> None:
@@ -156,7 +159,12 @@ class Reporter:
         )
 
         # Derive overall status
-        if not db_ok:
+        if self._debug_mode:
+            # Debug mode: alternate between degraded and unavailable every 5 seconds
+            elapsed = time.monotonic() - self._debug_start_time
+            cycle_position = (elapsed % 10.0) / 10.0  # 0-1 over 10 second cycle
+            overall_status = "degraded" if cycle_position < 0.5 else "unavailable"
+        elif not db_ok:
             overall_status: str = "unavailable"
         elif db_failure_rate >= 20.0 or mqtt_failure_rate >= 20.0:
             overall_status = "degraded"
