@@ -1,6 +1,6 @@
 # healthcheck-reporter
 
-Lightweight, production-ready health reporter that periodically probes database TCP connectivity and publishes a JSON report to MQTT.
+Lightweight health reporter that periodically probes database TCP connectivity and publishes a JSON report to MQTT.
 
 ## Installation
 
