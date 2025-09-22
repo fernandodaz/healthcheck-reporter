@@ -97,6 +97,12 @@ class Reporter:
         self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
 
+        # Error counters (cumulative)
+        self._db_error_count: int = 0
+        self._mqtt_error_count: int = 0
+        self._db_attempt_count: int = 0
+        self._mqtt_attempt_count: int = 0
+
     # Public API
     def start(self) -> None:
         """Start periodic reporting in a background thread (non-blocking)."""
@@ -117,6 +123,8 @@ class Reporter:
     def make_report(self) -> HealthReport:
         """Create a single health report and publish it to MQTT."""
 
+        # Database probe attempt
+        self._db_attempt_count += 1
         db_ok: bool
         db_ok = probe_postgres_connectivity(
             self._config.database_host,
@@ -133,10 +141,37 @@ class Reporter:
                 self._db_probe_timeout_seconds,
             )
 
+        if not db_ok:
+            self._db_error_count += 1
+
+        # Prepare MQTT attempt count before publish so payload reflects attempts
+        self._mqtt_attempt_count += 1
+
+        # Compute failure rates (percentage 0-100)
+        db_failure_rate: float = (
+            (self._db_error_count / self._db_attempt_count) * 100.0 if self._db_attempt_count > 0 else 0.0
+        )
+        mqtt_failure_rate: float = (
+            (self._mqtt_error_count / self._mqtt_attempt_count) * 100.0 if self._mqtt_attempt_count > 0 else 0.0
+        )
+
+        # Derive overall status
+        if not db_ok:
+            overall_status: str = "unavailable"
+        elif db_failure_rate >= 20.0 or mqtt_failure_rate >= 20.0:
+            overall_status = "degraded"
+        else:
+            overall_status = "operational"
+
         report = HealthReport(
             database_status="ok" if db_ok else "failed",
             mqtt_client_id=self._config.mqtt_client_id,
             timestamp=iso_utc_now(),
+            db_error_count=self._db_error_count,
+            mqtt_error_count=self._mqtt_error_count,
+            db_failure_rate=round(db_failure_rate, 2),
+            mqtt_failure_rate=round(mqtt_failure_rate, 2),
+            overall_status=overall_status,
         )
 
         self._publish_report(report)
@@ -149,6 +184,11 @@ class Reporter:
                 "database_status": report.database_status,
                 "mqtt_client_id": report.mqtt_client_id,
                 "timestamp": report.timestamp,
+                "db_error_count": report.db_error_count,
+                "mqtt_error_count": report.mqtt_error_count,
+                "db_failure_rate": report.db_failure_rate,
+                "mqtt_failure_rate": report.mqtt_failure_rate,
+                "overall_status": report.overall_status,
             },
             separators=(",", ":"),
         )
@@ -161,8 +201,10 @@ class Reporter:
             result = self._mqtt_client.publish(self._config.mqtt_topic, payload=payload, qos=1, retain=False)
             status = result.rc if hasattr(result, "rc") else result[0]
             if status != mqtt.MQTT_ERR_SUCCESS:
+                self._mqtt_error_count += 1
                 logger.error("MQTT publish failed with status %s", status)
         except Exception as exc:
+            self._mqtt_error_count += 1
             logger.exception("MQTT publish error: %s", exc)
 
     def _connect_mqtt(self) -> None:

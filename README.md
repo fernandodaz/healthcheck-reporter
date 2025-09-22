@@ -46,7 +46,12 @@ reporter.stop()
 {
   "database_status": "ok",
   "mqtt_client_id": "service-A-health",
-  "timestamp": "2025-01-01T00:00:00+00:00"
+  "timestamp": "2025-01-01T00:00:00+00:00",
+  "db_error_count": 0,
+  "mqtt_error_count": 0,
+  "db_failure_rate": 0.0,
+  "mqtt_failure_rate": 0.0,
+  "overall_status": "operational"
 }
 ```
 
@@ -54,3 +59,15 @@ reporter.stop()
 - A real PostgreSQL connection is attempted first (psycopg2 is required); otherwise it falls back to a TCP probe if the driver is unavailable in the environment.
 - MQTT publish uses QoS 1 and reconnects if needed.
 - `start()` runs a background thread (non-blocking). Use `stop()` on shutdown.
+
+### Metrics
+- Cumulative counters since process start:
+  - `db_error_count`: number of failed DB probes
+  - `mqtt_error_count`: number of failed MQTT publishes
+- Failure rates (percentages):
+  - `db_failure_rate`: failed DB probes / total DB probe attempts
+  - `mqtt_failure_rate`: failed MQTT publishes / total MQTT publish attempts
+- Derived overall status:
+  - `operational`: DB is currently reachable and failure rates < 20%
+  - `degraded`: failure rate of DB or MQTT >= 20%
+  - `unavailable`: current DB probe failed
