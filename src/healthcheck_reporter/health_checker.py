@@ -33,6 +33,41 @@ def probe_tcp_connectivity(host: str, port: int, timeout_seconds: float) -> bool
             return False
 
 
+def probe_postgres_connectivity(
+    host: str,
+    port: int,
+    dbname: str,
+    user: str,
+    password: str,
+    timeout_seconds: float,
+) -> bool:
+    """Attempt to establish a PostgreSQL connection using psycopg2, if available.
+
+    Returns True on successful connection; False on failure or if psycopg2 is not installed.
+    """
+    try:
+        import psycopg2  # type: ignore
+        from psycopg2 import OperationalError  # type: ignore
+    except Exception:
+        return False
+
+    dsn: str = (
+        f"host={host} port={int(port)} dbname={dbname} user={user} password={password} "
+        f"connect_timeout={int(max(1.0, timeout_seconds))}"
+    )
+    try:
+        conn = psycopg2.connect(dsn)
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return True
+    except OperationalError:
+        return False
+    except Exception:
+        return False
+
+
 def iso_utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -82,11 +117,21 @@ class Reporter:
     def make_report(self) -> HealthReport:
         """Create a single health report and publish it to MQTT."""
 
-        db_ok = probe_tcp_connectivity(
+        db_ok: bool
+        db_ok = probe_postgres_connectivity(
             self._config.database_host,
-            self._config.database_port,
+            int(self._config.database_port),
+            self._config.database_name,
+            self._config.database_user,
+            self._config.database_password,
             self._db_probe_timeout_seconds,
         )
+        if not db_ok:
+            db_ok = probe_tcp_connectivity(
+                self._config.database_host,
+                int(self._config.database_port),
+                self._db_probe_timeout_seconds,
+            )
 
         report = HealthReport(
             database_status="ok" if db_ok else "failed",

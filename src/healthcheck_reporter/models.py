@@ -18,6 +18,7 @@ class ReporterConfig:
     database_port: int
     database_name: str
     database_password: str
+    database_user: str
 
     # MQTT broker config
     mqtt_host: str

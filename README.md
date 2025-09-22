@@ -18,6 +18,7 @@ config = ReporterConfig(
     database_port=5432,
     database_name="appdb",
     database_password="secret",
+    database_user="app",
     mqtt_host="mqtt.example.local",
     mqtt_port=1883,
     mqtt_client_id="service-A-health",
@@ -50,6 +51,6 @@ reporter.stop()
 ```
 
 ### Notes
-- Database probe is a TCP connect to `database_host:database_port`; no queries or DB drivers.
+- A real PostgreSQL connection is attempted first (psycopg2 is required); otherwise it falls back to a TCP probe if the driver is unavailable in the environment.
 - MQTT publish uses QoS 1 and reconnects if needed.
 - `start()` runs a background thread (non-blocking). Use `stop()` on shutdown.
