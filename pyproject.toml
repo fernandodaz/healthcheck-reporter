@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "healthcheck-reporter"
+version = "0.1.0"
+description = "A health checker package to report using MQTT"
+readme = "README.md"
+authors = [
+    {name = "Fernando González", email = "fernando.daza.dev@gmail.com"}
+]
+requires-python = ">=3.8"
+dependencies = []
+
+[project.urls]
+"Homepage" = "https://github.com/fernandodazadev/healthcheck-reporter"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/healthcheck_reporter"]
