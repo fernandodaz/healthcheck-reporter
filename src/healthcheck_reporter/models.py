@@ -20,13 +20,18 @@ class ReporterConfig:
     database_password: str
     database_user: str
 
-    # MQTT broker config
-    mqtt_host: str
-    mqtt_port: int
-    mqtt_client_id: str
-    mqtt_topic: str
+    # MQTT broker config (required for MQTT mode)
+    mqtt_host: Optional[str] = None
+    mqtt_port: Optional[int] = None
+    mqtt_client_id: Optional[str] = None
+    mqtt_topic: Optional[str] = None
     mqtt_user: Optional[str] = None
     mqtt_password: Optional[str] = None
+
+    # REST API config (required for REST mode)
+    api_host: Optional[str] = None  # e.g., "0.0.0.0" or "127.0.0.1"
+    api_port: Optional[int] = None
+    api_path: Optional[str] = None  # e.g., "api/whatever/health"
 
 
 @dataclass(frozen=True)

@@ -1,6 +1,6 @@
 # healthcheck-reporter
 
-Lightweight health reporter that periodically probes database TCP connectivity and publishes a JSON report to MQTT.
+Lightweight health reporter that probes database connectivity and reports via MQTT or REST API.
 
 ## Installation
 
@@ -9,6 +9,8 @@ pip install healthcheck-reporter
 ```
 
 ## Usage
+
+### MQTT Mode
 
 ```python
 from healthcheck_reporter import Reporter, ReporterConfig
@@ -29,6 +31,7 @@ config = ReporterConfig(
 
 reporter = Reporter(
     config,
+    mode="mqtt",
     interval_seconds=30.0,  # configurable, non-blocking
     debug_mode=False,       # set to True for testing status transitions
 )
@@ -36,6 +39,37 @@ reporter = Reporter(
 reporter.start()
 
 # ... your service runs ...
+
+# On shutdown
+reporter.stop()
+```
+
+### REST API Mode
+
+```python
+from healthcheck_reporter import Reporter, ReporterConfig
+
+config = ReporterConfig(
+    database_host="db.example.local",
+    database_port=5432,
+    database_name="appdb",
+    database_password="secret",
+    database_user="app",
+    api_host="0.0.0.0",  # or "127.0.0.1" for localhost only
+    api_port=8080,
+    api_path="api/whatever/health",  # customizable path
+)
+
+reporter = Reporter(
+    config,
+    mode="rest",
+    debug_mode=False,       # set to True for testing status transitions
+)
+
+# This will start a FastAPI server on port 8080 in the background
+reporter.start()  # Non-blocking, starts server in background thread
+
+# ... your service continues running ...
 
 # On shutdown
 reporter.stop()
@@ -58,8 +92,8 @@ reporter.stop()
 
 ### Notes
 - A real PostgreSQL connection is attempted first (psycopg2 is required); otherwise it falls back to a TCP probe if the driver is unavailable in the environment.
-- MQTT publish uses QoS 1 and reconnects if needed.
-- `start()` runs a background thread (non-blocking). Use `stop()` on shutdown.
+- **Both modes**: `start()` runs in a background thread (non-blocking). Use `stop()` on shutdown.
+- **REST mode**: The health endpoint returns the same JSON structure as MQTT and is available at `http://{api_host}:{api_port}/{api_path}`.
 
 ### Metrics
 - Cumulative counters since process start:

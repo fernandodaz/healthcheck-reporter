@@ -11,6 +11,9 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import paho.mqtt.client as mqtt
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+import uvicorn
 
 from .models import HealthReport, ReporterConfig
 
@@ -73,7 +76,7 @@ def iso_utc_now() -> str:
 
 
 class Reporter:
-    """Periodic health reporter that publishes to MQTT."""
+    """Health reporter that can publish to MQTT or serve REST API."""
 
     def __init__(
         self,
@@ -83,17 +86,41 @@ class Reporter:
         db_probe_timeout_seconds: float = 3.0,
         mqtt_connect_timeout_seconds: float = 5.0,
         debug_mode: bool = False,
+        mode: str = "mqtt",
     ) -> None:
         self._config = config
         self._interval_seconds = max(0.1, interval_seconds)
         self._db_probe_timeout_seconds = max(0.1, db_probe_timeout_seconds)
         self._mqtt_connect_timeout_seconds = max(0.1, mqtt_connect_timeout_seconds)
         self._debug_mode = debug_mode
+        self._mode = mode
 
-        # MQTT client is created per Reporter instance and reused across publishes
-        self._mqtt_client = mqtt.Client(client_id=config.mqtt_client_id, clean_session=True)
-        if config.mqtt_user is not None:
-            self._mqtt_client.username_pw_set(config.mqtt_user, config.mqtt_password)
+        # Validate mode and required config
+        if mode == "mqtt":
+            if not all([config.mqtt_host, config.mqtt_port, config.mqtt_client_id, config.mqtt_topic]):
+                raise ValueError("MQTT mode requires mqtt_host, mqtt_port, mqtt_client_id, and mqtt_topic")
+            # MQTT client is created per Reporter instance and reused across publishes
+            self._mqtt_client = mqtt.Client(client_id=config.mqtt_client_id, clean_session=True)
+            if config.mqtt_user is not None:
+                self._mqtt_client.username_pw_set(config.mqtt_user, config.mqtt_password)
+            logger.info(
+                "Healthcheck reporter initialized in MQTT mode - "
+                "topic: %s, client_id: %s",
+                config.mqtt_topic, config.mqtt_client_id
+            )
+        elif mode == "rest":
+            if not all([config.api_host, config.api_port, config.api_path]):
+                raise ValueError("REST mode requires api_host, api_port and api_path")
+            self._mqtt_client = None
+            self._app = FastAPI(title="Health Check API")
+            self._setup_rest_endpoints()
+            logger.info(
+                "Healthcheck reporter initialized in REST mode - "
+                "host: %s, port: %s, path: /%s",
+                config.api_host, config.api_port, config.api_path
+            )
+        else:
+            raise ValueError("Mode must be 'mqtt' or 'rest'")
 
         # Threading primitives
         self._thread: Optional[threading.Thread] = None
@@ -106,13 +133,37 @@ class Reporter:
         self._mqtt_attempt_count: int = 0
         self._debug_start_time: float = time.monotonic()
 
+    def _setup_rest_endpoints(self) -> None:
+        """Setup REST API endpoints."""
+        @self._app.get(f"/{self._config.api_path}")
+        async def health_endpoint():
+            """Health check endpoint that returns the same JSON structure as MQTT."""
+            report = self.make_report()
+            return JSONResponse(content={
+                "database_status": report.database_status,
+                "mqtt_client_id": report.mqtt_client_id,
+                "timestamp": report.timestamp,
+                "db_error_count": report.db_error_count,
+                "mqtt_error_count": report.mqtt_error_count,
+                "db_failure_rate": report.db_failure_rate,
+                "mqtt_failure_rate": report.mqtt_failure_rate,
+                "overall_status": report.overall_status,
+            })
+
     # Public API
     def start(self) -> None:
-        """Start periodic reporting in a background thread (non-blocking)."""
+        """Start reporting in a background thread (non-blocking for both modes)."""
         if self._thread and self._thread.is_alive():
             return
         self._stop_event.clear()
-        self._thread = threading.Thread(target=self._run_loop, name="healthcheck-reporter", daemon=True)
+        
+        if self._mode == "rest":
+            # For REST mode, start the FastAPI server in a background thread
+            self._thread = threading.Thread(target=self._run_rest_server, name="healthcheck-rest-api", daemon=True)
+        else:
+            # For MQTT mode, start the periodic reporting thread
+            self._thread = threading.Thread(target=self._run_loop, name="healthcheck-reporter", daemon=True)
+        
         self._thread.start()
 
     def stop(self) -> None:
@@ -182,7 +233,8 @@ class Reporter:
             overall_status=overall_status,
         )
 
-        self._publish_report(report)
+        if self._mode == "mqtt":
+            self._publish_report(report)
         return report
 
     # Internal
@@ -233,3 +285,16 @@ class Reporter:
             next_run += self._interval_seconds
             timeout: float = max(0.0, next_run - time.monotonic())
             self._stop_event.wait(timeout)
+
+    def _run_rest_server(self) -> None:
+        """Run the FastAPI server in a background thread."""
+        try:
+            uvicorn.run(
+                self._app, 
+                host=self._config.api_host, 
+                port=self._config.api_port, 
+                log_level="info",
+                access_log=False
+            )
+        except Exception as exc:
+            logger.exception("REST API server error: %s", exc)
