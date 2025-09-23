@@ -41,6 +41,9 @@ def create_app(api_path: str, make_report: Callable[[], HealthReport]) -> FastAP
     g_overall_status: Gauge = Gauge(
         "healthcheck_overall_status", "Overall status as labeled gauge", ["status"], registry=registry
     )
+    g_overall_status_code: Gauge = Gauge(
+        "healthcheck_overall_status_code", "Overall status as numeric code (0=operational,1=degraded,2=unavailable)", registry=registry
+    )
 
     @app.get(f"/{api_path}")
     async def health_endpoint(request: Request) -> JSONResponse:
@@ -65,6 +68,8 @@ def create_app(api_path: str, make_report: Callable[[], HealthReport]) -> FastAP
         # Set overall status (1 for the current status label)
         status: str = str(data.get("overall_status", "unknown"))
         g_overall_status.labels(status=status).set(1)
+        status_code_map = {"operational": 0, "degraded": 1, "unavailable": 2}
+        g_overall_status_code.set(float(status_code_map.get(status, -1)))
 
         output: bytes = generate_latest(registry)
         return Response(content=output, media_type=CONTENT_TYPE_LATEST)

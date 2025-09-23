@@ -115,6 +115,7 @@ Point Prometheus to scrape `http://{api_host}:{api_port}/metrics`.
   - `operational`: DB is currently reachable and all failure rates < 20%
   - `degraded`: failure rate of DB, MQTT, or API >= 20%
   - `unavailable`: current DB probe failed or API is down (REST mode)
+  - Numeric code metric (Prometheus): `healthcheck_overall_status_code` — 0 operational, 1 degraded, 2 unavailable
 - Debug mode (`debug_mode=True`): alternates between "degraded" and "unavailable" every 5 seconds for testing
 
 ### Changelog
