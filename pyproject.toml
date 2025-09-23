@@ -22,6 +22,7 @@ dependencies = [
 
 [project.urls]
 "Homepage" = "https://github.com/fernandodazadev/healthcheck-reporter"
+"Changelog" = "https://github.com/fernandodazadev/healthcheck-reporter/blob/main/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/healthcheck_reporter"]

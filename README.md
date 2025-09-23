@@ -112,3 +112,6 @@ reporter.stop()
   - `degraded`: failure rate of DB, MQTT, or API >= 20%
   - `unavailable`: current DB probe failed or API is down (REST mode)
 - Debug mode (`debug_mode=True`): alternates between "degraded" and "unavailable" every 5 seconds for testing
+
+### Changelog
+- See the full changelog at: https://github.com/fernandodazadev/healthcheck-reporter/blob/main/CHANGELOG.md
