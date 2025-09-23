@@ -86,7 +86,9 @@ reporter.stop()
   "mqtt_error_count": 0,
   "db_failure_rate": 0.0,
   "mqtt_failure_rate": 0.0,
-  "overall_status": "operational"
+  "overall_status": "operational",
+  "api_error_count": 0,
+  "api_failure_rate": 0.0
 }
 ```
 
@@ -94,16 +96,19 @@ reporter.stop()
 - A real PostgreSQL connection is attempted first (psycopg2 is required); otherwise it falls back to a TCP probe if the driver is unavailable in the environment.
 - **Both modes**: `start()` runs in a background thread (non-blocking). Use `stop()` on shutdown.
 - **REST mode**: The health endpoint returns the same JSON structure as MQTT and is available at `http://{api_host}:{api_port}/{api_path}`.
+- **Grafana integration**: If Grafana hits the endpoint when it's down, it will get a connection error (expected behavior). The health reporter tracks API availability internally and reports it in the metrics.
 
 ### Metrics
 - Cumulative counters since process start:
   - `db_error_count`: number of failed DB probes
   - `mqtt_error_count`: number of failed MQTT publishes
+  - `api_error_count`: number of failed API health checks (REST mode only)
 - Failure rates (percentages):
   - `db_failure_rate`: failed DB probes / total DB probe attempts
   - `mqtt_failure_rate`: failed MQTT publishes / total MQTT publish attempts
+  - `api_failure_rate`: failed API health checks / total API health check attempts (REST mode only)
 - Derived overall status:
-  - `operational`: DB is currently reachable and failure rates < 20%
-  - `degraded`: failure rate of DB or MQTT >= 20%
-  - `unavailable`: current DB probe failed
+  - `operational`: DB is currently reachable and all failure rates < 20%
+  - `degraded`: failure rate of DB, MQTT, or API >= 20%
+  - `unavailable`: current DB probe failed or API is down (REST mode)
 - Debug mode (`debug_mode=True`): alternates between "degraded" and "unavailable" every 5 seconds for testing

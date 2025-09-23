@@ -11,9 +11,11 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import paho.mqtt.client as mqtt
+from paho.mqtt.client import MQTTMessageInfo
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 import uvicorn
+import requests
 
 from .models import HealthReport, ReporterConfig
 
@@ -132,13 +134,19 @@ class Reporter:
         self._db_attempt_count: int = 0
         self._mqtt_attempt_count: int = 0
         self._debug_start_time: float = time.monotonic()
+        
+        # REST API server monitoring
+        self._api_error_count: int = 0
+        self._api_attempt_count: int = 0
+        self._server_ready: bool = False
+        self._server_ready_event = threading.Event()
 
     def _setup_rest_endpoints(self) -> None:
         """Setup REST API endpoints."""
         @self._app.get(f"/{self._config.api_path}")
-        async def health_endpoint():
+        async def health_endpoint() -> JSONResponse:
             """Health check endpoint that returns the same JSON structure as MQTT."""
-            report = self.make_report()
+            report: HealthReport = self.make_report()
             return JSONResponse(content={
                 "database_status": report.database_status,
                 "mqtt_client_id": report.mqtt_client_id,
@@ -148,6 +156,8 @@ class Reporter:
                 "db_failure_rate": report.db_failure_rate,
                 "mqtt_failure_rate": report.mqtt_failure_rate,
                 "overall_status": report.overall_status,
+                "api_error_count": report.api_error_count,
+                "api_failure_rate": report.api_failure_rate,
             })
 
     # Public API
@@ -160,11 +170,13 @@ class Reporter:
         if self._mode == "rest":
             # For REST mode, start the FastAPI server in a background thread
             self._thread = threading.Thread(target=self._run_rest_server, name="healthcheck-rest-api", daemon=True)
+            self._thread.start()
+            # Wait for server to be ready (with timeout)
+            self._wait_for_server_ready()
         else:
             # For MQTT mode, start the periodic reporting thread
             self._thread = threading.Thread(target=self._run_loop, name="healthcheck-reporter", daemon=True)
-        
-        self._thread.start()
+            self._thread.start()
 
     def stop(self) -> None:
         """Stop the background reporting loop and wait for thread to exit."""
@@ -201,6 +213,9 @@ class Reporter:
         # Prepare MQTT attempt count before publish so payload reflects attempts
         self._mqtt_attempt_count += 1
 
+        # Check API health for REST mode
+        api_healthy: bool = self._check_api_health()
+
         # Compute failure rates (percentage 0-100)
         db_failure_rate: float = (
             (self._db_error_count / self._db_attempt_count) * 100.0 if self._db_attempt_count > 0 else 0.0
@@ -208,21 +223,24 @@ class Reporter:
         mqtt_failure_rate: float = (
             (self._mqtt_error_count / self._mqtt_attempt_count) * 100.0 if self._mqtt_attempt_count > 0 else 0.0
         )
+        api_failure_rate: float = (
+            (self._api_error_count / self._api_attempt_count) * 100.0 if self._api_attempt_count > 0 else 0.0
+        )
 
         # Derive overall status
         if self._debug_mode:
             # Debug mode: alternate between degraded and unavailable every 5 seconds
-            elapsed = time.monotonic() - self._debug_start_time
-            cycle_position = (elapsed % 10.0) / 10.0  # 0-1 over 10 second cycle
-            overall_status = "degraded" if cycle_position < 0.5 else "unavailable"
-        elif not db_ok:
+            elapsed: float = time.monotonic() - self._debug_start_time
+            cycle_position: float = (elapsed % 10.0) / 10.0  # 0-1 over 10 second cycle
+            overall_status: str = "degraded" if cycle_position < 0.5 else "unavailable"
+        elif not db_ok or (self._mode == "rest" and not api_healthy):
             overall_status: str = "unavailable"
-        elif db_failure_rate >= 20.0 or mqtt_failure_rate >= 20.0:
-            overall_status = "degraded"
+        elif db_failure_rate >= 20.0 or mqtt_failure_rate >= 20.0 or api_failure_rate >= 20.0:
+            overall_status: str = "degraded"
         else:
-            overall_status = "operational"
+            overall_status: str = "operational"
 
-        report = HealthReport(
+        report: HealthReport = HealthReport(
             database_status="ok" if db_ok else "failed",
             mqtt_client_id=self._config.mqtt_client_id,
             timestamp=iso_utc_now(),
@@ -231,6 +249,8 @@ class Reporter:
             db_failure_rate=round(db_failure_rate, 2),
             mqtt_failure_rate=round(mqtt_failure_rate, 2),
             overall_status=overall_status,
+            api_error_count=self._api_error_count,
+            api_failure_rate=round(api_failure_rate, 2),
         )
 
         if self._mode == "mqtt":
@@ -249,6 +269,8 @@ class Reporter:
                 "db_failure_rate": report.db_failure_rate,
                 "mqtt_failure_rate": report.mqtt_failure_rate,
                 "overall_status": report.overall_status,
+                "api_error_count": report.api_error_count,
+                "api_failure_rate": report.api_failure_rate,
             },
             separators=(",", ":"),
         )
@@ -258,8 +280,8 @@ class Reporter:
             if not self._mqtt_client.is_connected():
                 self._connect_mqtt()
 
-            result = self._mqtt_client.publish(self._config.mqtt_topic, payload=payload, qos=1, retain=False)
-            status = result.rc if hasattr(result, "rc") else result[0]
+            result: MQTTMessageInfo = self._mqtt_client.publish(self._config.mqtt_topic, payload=payload, qos=1, retain=False)
+            status: int = getattr(result, "rc", mqtt.MQTT_ERR_SUCCESS)
             if status != mqtt.MQTT_ERR_SUCCESS:
                 self._mqtt_error_count += 1
                 logger.error("MQTT publish failed with status %s", status)
@@ -286,6 +308,58 @@ class Reporter:
             timeout: float = max(0.0, next_run - time.monotonic())
             self._stop_event.wait(timeout)
 
+    def _wait_for_server_ready(self, timeout_seconds: float = 10.0) -> None:
+        """Wait for the REST API server to be ready and responding."""
+        start_time: float = time.monotonic()
+        url: str = f"http://{self._config.api_host}:{self._config.api_port}/{self._config.api_path}"
+        
+        while time.monotonic() - start_time < timeout_seconds:
+            try:
+                response = requests.get(url, timeout=1.0)
+                if response.status_code == 200:
+                    self._server_ready = True
+                    self._server_ready_event.set()
+                    logger.info("REST API server is ready and responding at %s", url)
+                    return
+            except Exception:
+                pass  # Server not ready yet
+            time.sleep(0.1)
+        
+        logger.warning("REST API server did not become ready within %s seconds", timeout_seconds)
+
+    def _check_api_health(self) -> bool:
+        """Check if the REST API is still responding."""
+        if self._mode != "rest":
+            return True
+            
+        self._api_attempt_count += 1
+        url: str = f"http://{self._config.api_host}:{self._config.api_port}/{self._config.api_path}"
+        
+        try:
+            response = requests.get(url, timeout=2.0)
+            if response.status_code == 200:
+                self._server_ready = True
+                return True
+            else:
+                self._api_error_count += 1
+                logger.warning("REST API returned status %s", response.status_code)
+                return False
+        except requests.exceptions.ConnectionError:
+            self._api_error_count += 1
+            self._server_ready = False
+            logger.error("REST API connection refused - server may be down")
+            return False
+        except requests.exceptions.Timeout:
+            self._api_error_count += 1
+            self._server_ready = False
+            logger.error("REST API timeout - server may be unresponsive")
+            return False
+        except Exception as exc:
+            self._api_error_count += 1
+            self._server_ready = False
+            logger.error("REST API health check failed: %s", exc)
+            return False
+
     def _run_rest_server(self) -> None:
         """Run the FastAPI server in a background thread."""
         try:
@@ -297,4 +371,5 @@ class Reporter:
                 access_log=False
             )
         except Exception as exc:
-            logger.exception("REST API server error: %s", exc)
+            logger.exception("REST API server crashed: %s", exc)
+            self._server_ready = False

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "healthcheck-reporter"
-version = "0.1.5"
+version = "0.1.6"
 description = "A health checker package to report using MQTT"
 readme = "README.md"
 authors = [
@@ -15,7 +15,8 @@ dependencies = [
     "paho-mqtt>=1.6.1,<2.0.0",
     "psycopg2-binary>=2.9,<3.0",
     "fastapi>=0.104.0,<1.0.0",
-    "uvicorn>=0.24.0,<1.0.0"
+    "uvicorn>=0.24.0,<1.0.0",
+    "requests>=2.31.0,<3.0.0"
 ]
 
 

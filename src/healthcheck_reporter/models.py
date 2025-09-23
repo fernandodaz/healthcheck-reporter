@@ -46,3 +46,5 @@ class HealthReport:
     db_failure_rate: float
     mqtt_failure_rate: float
     overall_status: str
+    api_error_count: int
+    api_failure_rate: float
