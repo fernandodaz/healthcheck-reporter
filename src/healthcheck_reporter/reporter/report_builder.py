@@ -36,17 +36,22 @@ def build_report(
         overall_status = "operational"
 
     return HealthReport(
-        database_status="ok" if db_ok else "failed",
+        database_status="",  # derived in to_dict
         mqtt_client_id=mqtt_client_id,
         timestamp=iso_utc_now(),
         db_error_count=db_error_count,
         mqtt_error_count=mqtt_error_count,
-        db_failure_rate=round(db_failure_rate, 2),
-        mqtt_failure_rate=round(mqtt_failure_rate, 2),
-        overall_status=overall_status,
+        db_failure_rate=0.0,  # derived in to_dict
+        mqtt_failure_rate=0.0,  # derived in to_dict
+        overall_status="",  # derived in to_dict
         api_error_count=api_error_count,
-        api_failure_rate=round(api_failure_rate, 2),
+        api_failure_rate=0.0,  # derived in to_dict
         uptime=uptime,
+        db_attempt_count=db_attempt_count,
+        mqtt_attempt_count=mqtt_attempt_count,
+        api_attempt_count=api_attempt_count,
+        db_ok=db_ok,
+        debug_overall_status=debug_overall_status,
     )
 
 

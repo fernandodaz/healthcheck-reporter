@@ -19,18 +19,7 @@ def create_app(api_path: str, make_report: Callable[[], HealthReport]) -> FastAP
     @app.get(f"/{api_path}")
     async def health_endpoint() -> JSONResponse:
         report: HealthReport = make_report()
-        return JSONResponse(content={
-            "database_status": report.database_status,
-            "mqtt_client_id": report.mqtt_client_id,
-            "timestamp": report.timestamp,
-            "db_error_count": report.db_error_count,
-            "mqtt_error_count": report.mqtt_error_count,
-            "db_failure_rate": report.db_failure_rate,
-            "mqtt_failure_rate": report.mqtt_failure_rate,
-            "overall_status": report.overall_status,
-            "api_error_count": report.api_error_count,
-            "api_failure_rate": report.api_failure_rate,
-        })
+        return JSONResponse(content=report.to_dict())
 
     return app
 

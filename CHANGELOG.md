@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.1] - 2025-09-23
+### Changed
+- Centralized DTO: added `HealthReport.to_dict()` and updated REST/MQTT to use it.
+- Moved all derived fields computation (failure rates, overall status, database_status, timestamp) into `to_dict()` to avoid duplication.
+- Ensured `uptime` appears in REST response and MQTT payload.
+
+### Fixed
+- Typing: imported `Literal` and removed unnecessary type ignores by narrowing Optionals.
+
 ## [0.2.0] - 2025-09-23
 ### Added
 - Modular architecture:

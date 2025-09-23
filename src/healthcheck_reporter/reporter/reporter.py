@@ -153,19 +153,7 @@ class Reporter:
         )
 
         if self._mode == "mqtt" and self._publisher and self._config.mqtt_topic:
-            status: int = self._publisher.publish_json(self._config.mqtt_topic, payload={
-                "database_status": report.database_status,
-                "mqtt_client_id": report.mqtt_client_id,
-                "timestamp": report.timestamp,
-                "db_error_count": report.db_error_count,
-                "mqtt_error_count": report.mqtt_error_count,
-                "db_failure_rate": report.db_failure_rate,
-                "mqtt_failure_rate": report.mqtt_failure_rate,
-                "overall_status": report.overall_status,
-                "api_error_count": report.api_error_count,
-                "api_failure_rate": report.api_failure_rate,
-                "uptime": report.uptime,
-            })
+            status: int = self._publisher.publish_json(self._config.mqtt_topic, payload=report.to_dict())
             if status != 0:
                 self._mqtt_error_count += 1
                 logger.error("MQTT publish failed with status %s", status)
