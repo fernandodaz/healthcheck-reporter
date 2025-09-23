@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 from ..core.models import HealthReport
 
 
-def iso_utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+def unix_utc_now() -> int:
+    return int(datetime.now(timezone.utc).timestamp())
 
 
 def build_report(
@@ -40,7 +40,7 @@ def build_report(
     return HealthReport(
         database_status="",  # derived in to_dict
         mqtt_client_id=mqtt_client_id,
-        timestamp=iso_utc_now(),
+        unix_timestamp=unix_utc_now(),
         db_error_count=db_error_count,
         mqtt_error_count=mqtt_error_count,
         db_failure_rate=0.0,  # derived in to_dict

@@ -18,13 +18,6 @@ def create_app(api_path: str, make_report: Callable[[], HealthReport]) -> FastAP
 
     @app.get(f"/{api_path}")
     async def health_endpoint(request: Request) -> JSONResponse:
-        logger.info(
-            "Received request on /%s: method=%s client=%s query=%s",
-            api_path,
-            request.method,
-            request.client.host if request.client else "unknown",
-            dict(request.query_params),
-        )
         report: HealthReport = make_report()
         return JSONResponse(content=report.to_dict())
 

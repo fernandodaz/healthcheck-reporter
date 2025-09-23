@@ -9,7 +9,7 @@ from typing import Optional, Literal
 class HealthReport:
     database_status: str
     mqtt_client_id: str
-    timestamp: str
+    unix_timestamp: int
     db_error_count: int
     mqtt_error_count: int
     db_failure_rate: float
@@ -56,12 +56,13 @@ class HealthReport:
             overall_status = "operational"
 
         database_status: Literal['failed', 'ok'] = "ok" if self.db_ok else "failed"
-        timestamp: str = self.timestamp or datetime.now(timezone.utc).isoformat()
+        # Prefer provided unix_timestamp; fall back to current time in seconds
+        unix_timestamp: int = self.unix_timestamp or int(datetime.now(timezone.utc).timestamp())
 
         return {
             "database_status": database_status,
             "mqtt_client_id": self.mqtt_client_id,
-            "timestamp": timestamp,
+            "unix_timestamp": unix_timestamp,
             "db_error_count": self.db_error_count,
             "mqtt_error_count": self.mqtt_error_count,
             "db_failure_rate": round(db_failure_rate, 2),
