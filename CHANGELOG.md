@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.2] - 2025-09-23
+### Added
+- Configurable status thresholds via constructor parameters:
+  - `degraded_threshold_percent` (default 20.0)
+  - `unavailable_threshold_percent` (default 100.0)
+- Threshold evaluation centralized in `HealthReport.to_dict()`.
+
 ## [0.2.1] - 2025-09-23
 ### Changed
 - Centralized DTO: added `HealthReport.to_dict()` and updated REST/MQTT to use it.

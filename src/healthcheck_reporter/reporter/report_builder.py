@@ -21,6 +21,8 @@ def build_report(
     api_attempt_count: int = 0,
     debug_overall_status: str | None = None,
     uptime: float = 0.0,
+    degraded_threshold_percent: float = 20.0,
+    unavailable_threshold_percent: float = 100.0,
 ) -> HealthReport:
     db_failure_rate: float = (db_error_count / db_attempt_count) * 100.0 if db_attempt_count > 0 else 0.0
     mqtt_failure_rate: float = (mqtt_error_count / mqtt_attempt_count) * 100.0 if mqtt_attempt_count > 0 else 0.0
@@ -52,6 +54,8 @@ def build_report(
         api_attempt_count=api_attempt_count,
         db_ok=db_ok,
         debug_overall_status=debug_overall_status,
+        degraded_threshold_percent=degraded_threshold_percent,
+        unavailable_threshold_percent=unavailable_threshold_percent,
     )
 
 

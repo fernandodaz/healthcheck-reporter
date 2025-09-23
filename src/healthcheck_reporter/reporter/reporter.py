@@ -26,6 +26,8 @@ class Reporter:
         mqtt_connect_timeout_seconds: float = 5.0,
         debug_mode: bool = False,
         mode: str = "mqtt",
+        degraded_threshold_percent: float = 20.0,
+        unavailable_threshold_percent: float = 100.0,
     ) -> None:
         self._config = config
         self._interval_seconds = max(0.1, interval_seconds)
@@ -33,6 +35,8 @@ class Reporter:
         self._mqtt_connect_timeout_seconds = max(0.1, mqtt_connect_timeout_seconds)
         self._debug_mode = debug_mode
         self._mode = mode
+        self._degraded_threshold_percent = degraded_threshold_percent
+        self._unavailable_threshold_percent = unavailable_threshold_percent
 
         # State
         self._thread: Optional[threading.Thread] = None
@@ -150,6 +154,8 @@ class Reporter:
             api_attempt_count=self._api_attempt_count,
             debug_overall_status=debug_status,
             uptime=uptime_seconds,
+            degraded_threshold_percent=self._degraded_threshold_percent,
+            unavailable_threshold_percent=self._unavailable_threshold_percent,
         )
 
         if self._mode == "mqtt" and self._publisher and self._config.mqtt_topic:

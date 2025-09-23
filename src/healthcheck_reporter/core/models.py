@@ -25,6 +25,8 @@ class HealthReport:
     api_attempt_count: int = 0
     db_ok: bool = False
     debug_overall_status: Optional[str] = None
+    degraded_threshold_percent: float = 20.0
+    unavailable_threshold_percent: float = 100.0
 
     def to_dict(self) -> dict[str, object]:
         # Compute derived metrics centrally to avoid duplication across transports
@@ -40,9 +42,15 @@ class HealthReport:
 
         if self.debug_overall_status is not None:
             overall_status = self.debug_overall_status
-        elif not self.db_ok:
+        elif (db_failure_rate >= self.unavailable_threshold_percent
+              or mqtt_failure_rate >= self.unavailable_threshold_percent
+              or api_failure_rate >= self.unavailable_threshold_percent
+              or not self.db_ok):
+            # Consider hard failure if DB currently down or any rate exceeds the unavailable threshold
             overall_status = "unavailable"
-        elif db_failure_rate >= 20.0 or mqtt_failure_rate >= 20.0 or api_failure_rate >= 20.0:
+        elif (db_failure_rate >= self.degraded_threshold_percent
+              or mqtt_failure_rate >= self.degraded_threshold_percent
+              or api_failure_rate >= self.degraded_threshold_percent):
             overall_status = "degraded"
         else:
             overall_status = "operational"
