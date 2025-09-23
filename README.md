@@ -81,14 +81,15 @@ reporter.stop()
 {
   "database_status": "ok",
   "mqtt_client_id": "service-A-health",
-  "timestamp": "2025-01-01T00:00:00+00:00",
+  "unix_timestamp": 1735689600,
   "db_error_count": 0,
   "mqtt_error_count": 0,
   "db_failure_rate": 0.0,
   "mqtt_failure_rate": 0.0,
   "overall_status": "operational",
   "api_error_count": 0,
-  "api_failure_rate": 0.0
+  "api_failure_rate": 0.0,
+  "uptime": 12.34
 }
 ```
 
@@ -99,6 +100,9 @@ reporter.stop()
 - **Grafana integration**: If Grafana hits the endpoint when it's down, it will get a connection error (expected behavior). The health reporter tracks API availability internally and reports it in the metrics.
 
 ### Metrics
+When running in REST mode, a Prometheus endpoint is available at `/metrics`.
+Point Prometheus to scrape `http://{api_host}:{api_port}/metrics`.
+
 - Cumulative counters since process start:
   - `db_error_count`: number of failed DB probes
   - `mqtt_error_count`: number of failed MQTT publishes

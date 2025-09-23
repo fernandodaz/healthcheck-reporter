@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2025-09-23
+### Changed
+- Breaking: JSON payload timestamp field renamed from `timestamp` (ISO 8601 string) to `unix_timestamp` (integer seconds since epoch).
+
+### Added
+- Prometheus metrics endpoint at `/metrics` when running in REST mode.
+  - Exposes gauges: `healthcheck_database_ok`, `healthcheck_db_error_count`, `healthcheck_mqtt_error_count`, `healthcheck_api_error_count`,
+    `healthcheck_db_failure_rate_percent`, `healthcheck_mqtt_failure_rate_percent`, `healthcheck_api_failure_rate_percent`, `healthcheck_uptime_seconds`, and labeled `healthcheck_overall_status`.
+- Dependency: `prometheus-client`.
+
 ## [0.2.2] - 2025-09-23
 ### Added
 - Configurable status thresholds via constructor parameters:
