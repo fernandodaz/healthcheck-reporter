@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.2] - 2025-09-24
+### Added
+- Pylint configuration integrated via `pyproject.toml` and optional dev dependency.
+
+### Changed
+- CI: Publishing workflow now runs Pylint first and only builds/publishes if linting passes.
+- Removed separate lint workflow to avoid duplication.
+
 ## [0.3.0] - 2025-09-23
 ### Changed
 - Breaking: JSON payload timestamp field renamed from `timestamp` (ISO 8601 string) to `unix_timestamp` (integer seconds since epoch).

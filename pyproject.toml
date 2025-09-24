@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "healthcheck-reporter"
-version = "0.3.1"
+version = "0.3.2"
 description = "A health checker package to report using MQTT"
 readme = "README.md"
 authors = [
@@ -20,6 +20,11 @@ dependencies = [
     "prometheus-client>=0.19.0,<1.0.0"
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pylint>=3.2,<4.0"
+]
+
 
 [project.urls]
 "Homepage" = "https://github.com/fernandodazadev/healthcheck-reporter"
@@ -27,3 +32,23 @@ dependencies = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/healthcheck_reporter"]
+
+[tool.pylint.main]
+init-hook = 'import sys; sys.path.append("src")'
+py-version = "3.8"
+jobs = 0
+ignore = []
+
+[tool.pylint.messages_control]
+disable = [
+    "missing-module-docstring",   # C0114
+    "missing-class-docstring",    # C0115
+    "missing-function-docstring", # C0116
+    "too-few-public-methods"      # R0903
+]
+
+[tool.pylint.format]
+max-line-length = 100
+
+[tool.pylint.reports]
+output-format = "colorized"

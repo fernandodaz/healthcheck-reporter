@@ -8,6 +8,12 @@ Lightweight health reporter that probes database connectivity and reports via MQ
 pip install healthcheck-reporter
 ```
 
+### Dev setup (with Pylint)
+
+```bash
+pip install -e .[dev]
+```
+
 ## Usage
 
 ### MQTT Mode
@@ -117,6 +123,16 @@ Point Prometheus to scrape `http://{api_host}:{api_port}/metrics`.
   - `unavailable`: current DB probe failed or API is down (REST mode)
   - Numeric code metric (Prometheus): `healthcheck_overall_status_code` — 0 operational, 1 degraded, 2 unavailable
 - Debug mode (`debug_mode=True`): alternates between "degraded" and "unavailable" every 5 seconds for testing
+
+## Development
+
+### Linting
+
+- Run Pylint on the project:
+
+```bash
+pylint src/healthcheck_reporter
+```
 
 ### Changelog
 - See the full changelog at: https://github.com/fernandodazadev/healthcheck-reporter/blob/main/CHANGELOG.md
