@@ -65,6 +65,8 @@ jobs:
     needs: build
     # Publish on every push to main
     runs-on: ubuntu-latest
+    environment:
+      name: production
     steps:
       - name: Download dist artifact
         uses: actions/download-artifact@v4
